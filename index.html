@@ -350,7 +350,7 @@
     </div>
 
     <!-- Scripts -->
-    <script>
+<script>
     // 這裡填入從 Firebase Console 取得的 Web App 設定
     var __firebase_config = JSON.stringify({
         apiKey: "AIzaSyDnpeXA16Lig0yhcvuAxRk5o1MiS6yKikE",
@@ -368,30 +368,46 @@
     var __initial_auth_token = ""; 
 </script>
     <script type="module">
-        
+        // 1. 匯入 Firebase SDK (這段非常重要，讓瀏覽器知道去哪裡抓功能)
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, onSnapshot, serverTimestamp, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         // --- 全域變數與設定 ---
         const DEFAULT_ARTICLE = `　　美如奶奶個子不高，有著圓圓的臉蛋、一頭灰白的短髮。她常常穿著一件藍色的工作圍裙，戴著一副紫色的眼鏡，滿臉笑容，看起來特別有活力。
 　　放學後，我們最喜歡到「小書店」了！美如奶奶在店裡很忙，她有時會把書架上的書一本本排好，有時會仔細收拾文具區散落的東西。我們喜歡在書店裡看書，有時看著看著，忍不住大聲討論起來，像吵鬧的小麻雀。這時候美如奶奶會靠過來，對我們微微笑，比出一個「請安靜」的魔法暗號。
 　　書店雖然很小，不過東西不少，美如奶奶的腦子裡好像有部電腦，總是知道什麼東西放在哪裡。假如有人問：「我們要做科展，該看什麼書呢？」一本九十九個好玩的科學遊戲就會交到他手上。假如有人問：「有沒有教人怎麼變魔術的書？」她會幫忙找出一本小小魔術師。假如有人要買水彩筆、筆記本、卡紙……她都能很快的幫助大家找出來。
 　　書店不忙的時候，美如奶奶會坐在一張特製的高腳椅上專心看書。書店裡有張小小的標語寫著：「天底下最棒的事情，就是跟書本成為朋友。」常到書店的我們，因為美如奶奶，也跟書本變成好朋友，成為真正的愛書人。`;
-
+        
         const PRONOUNS = ['我', '你', '他', '她', '它', '我們', '你們', '他們'];
         const PUNCTUATIONS = ['、', '，', '。', '！', '？', '：', '「', '」'];
         const CONJUNCTIONS = ['首先', '然後', '接著', '最後', '因為', '所以', '但是', '可是', '而且', '不過', '另外', '總之'];
-        
         const HINTS = {
             q1: ["🤔 如果不懂，試著重新讀一遍這段，找出關鍵詞！", "✨ 理解是摘要的第一步，慢慢來沒關係！"],
             q2: ["🎯 重點通常在段落的開頭或結尾！", "✨ 重點通常是在說「誰做了什麼」或「什麼是什麼」"],
             q3: ["🗑️ 具體的數字、時間、地點細節可以考慮刪除", "✂️ 形容詞、副詞通常可以刪除"]
         };
-
+        
+        // Google Gemini API Key (AI 功能用)
         const apiKey = "AIzaSyDEvWbTOt6oh1ZsCLR-emsHemQSFYk2E4w";
         const teacherApiKey = ""; 
 
+        // 2. Firebase 設定 (您的專案資訊)
+        const firebaseConfig = {
+            apiKey: "AIzaSyDnpeXA16Lig0yhcvuAxRk5o1MiS6yKikE",
+            authDomain: "super-helper-58525.firebaseapp.com",
+            projectId: "super-helper-58525",
+            storageBucket: "super-helper-58525.firebasestorage.app",
+            messagingSenderId: "730201633624",
+            appId: "1:730201633624:web:9c001a7d4ee32ee94cab2d",
+            measurementId: "G-0L0CVM4D6P"
+        };
+
+        // 3. 設定應用程式 ID (這是資料庫儲存的路徑名稱)
+        const appId = 'super-helper-app-v1';
+
         let user = null;
         let db = null;
-        let appId = 'default-app-id';
         let originalText = DEFAULT_ARTICLE;
         let currentSubmissions = [];
         let currentArticles = [];
@@ -400,41 +416,25 @@
         let checks = { check1: null, check2: null, check3: null, check4: null, confidence: null };
         let hintIndices = { q1: 0, q2: 0, q3: 0 };
 
-        // --- 初始化 Firebase ---
+        // --- 初始化 Firebase (已修正) ---
         function initFirebase() {
             try {
-                let config;
-                if (typeof __firebase_config !== 'undefined') {
-                    config = JSON.parse(__firebase_config);
-                    // 修正：直接使用 __app_id 即可，不進行 sanitize
-                    appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                } else {
-                    console.warn("No firebase config found. App running in offline mode.");
-                    return;
-                }
-
-                const app = initializeApp(config);
+                console.log("正在連接 Firebase...");
+                const app = initializeApp(firebaseConfig);
                 const auth = getAuth(app);
                 db = getFirestore(app);
 
-                // 標準的 Canvas 驗證流程：優先使用 Custom Token
-                const doAuth = async () => {
-                    try {
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                            await signInWithCustomToken(auth, __initial_auth_token);
-                        } else {
-                            await signInAnonymously(auth);
-                        }
-                    } catch (e) {
-                        console.error("Auth failed:", e);
-                    }
-                };
+                // 執行匿名登入
+                signInAnonymously(auth).catch((error) => {
+                    console.error("登入失敗:", error);
+                    alert("⚠️ 無法登入 Firebase，請確認是否已在 Console 開啟「匿名登入」功能。");
+                });
                 
-                doAuth();
-
+                // 監聽登入狀態
                 onAuthStateChanged(auth, (u) => {
                     user = u;
                     if(user) {
+                        console.log("Firebase 連線成功! User ID:", user.uid);
                         loadArticles();
                         if(document.getElementById('teacher-dashboard').style.display === 'flex') {
                             loadSubmissions();
@@ -443,6 +443,7 @@
                 });
             } catch (e) {
                 console.error("Firebase init error:", e);
+                alert("Firebase 初始化發生錯誤，請按 F12 查看 Console");
             }
         }
 
@@ -455,7 +456,6 @@
 
             let node = sel.anchorNode;
             if(node.nodeType === 3) node = node.parentNode;
-
             if(node.classList.contains('deletion-text')) {
                 const text = node.innerText;
                 node.replaceWith(text);
@@ -471,7 +471,6 @@
             const span = document.createElement('span');
             span.className = "deletion-text"; 
             span.title = "點擊以復原";
-            
             try {
                 range.surroundContents(span);
                 sel.removeAllRanges();
@@ -556,7 +555,7 @@
 
             try {
                 const response = await fetch(
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${key}`,
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
                     {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -693,7 +692,6 @@
             const card = parent.parentNode;
             // Visual update
             const color = id === 'check1' ? 'orange' : id === 'check3' ? 'red' : id === 'check4' ? 'cyan' : 'purple';
-            
             if(val) {
                 card.className = `p-4 rounded-2xl border-2 bg-${color}-50 border-${color}-400 shadow-md transition-all`;
                 // Reset buttons
@@ -711,7 +709,6 @@
             studentInfo.seatNumber = document.getElementById('input-seat').value;
             
             document.getElementById('display-student-name').innerText = `${studentInfo.name || '學生姓名'} (座號: ${studentInfo.seatNumber || '?'})`;
-            
             const map = { good: '我覺得很好！', ok: '我覺得還可以', unsure: '我不太確定' };
             document.getElementById('display-confidence').innerText = map[checks.confidence] || '尚未評估';
         }
@@ -751,7 +748,6 @@
                         expand('summary-area');
                     }
                 });
-                
                 const link = document.createElement('a');
                 link.download = `${studentInfo.name || '作業'}_摘要.png`;
                 link.href = canvas.toDataURL('image/png');
@@ -767,9 +763,14 @@
 
         // --- 提交與資料庫 ---
         window.handleSubmit = async function() {
-            if(!db || !user) { alert("資料庫未連線"); return; }
+            if(!db || !user) { alert("資料庫未連線，請檢查網路或稍後再試"); return; }
             if(!studentInfo.name) { alert("請填寫姓名"); return; }
             
+            const btn = document.querySelector('button[onclick="handleSubmit()"]');
+            const originalTextBtn = btn.innerText;
+            btn.innerText = "提交中...";
+            btn.disabled = true;
+
             try {
                 await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'student_summaries'), {
                     userId: user.uid,
@@ -781,10 +782,13 @@
                     stats,
                     createdAt: serverTimestamp()
                 });
-                alert("作業提交成功！");
+                alert("🎉 作業提交成功！太棒了！");
             } catch(e) {
                 console.error(e);
-                alert("提交失敗");
+                alert("❌ 提交失敗：\n" + e.message + "\n請確認 Firebase Rules 是否已設定為開放測試。");
+            } finally {
+                btn.innerText = originalTextBtn;
+                btn.disabled = false;
             }
         }
 
@@ -796,12 +800,14 @@
 
         function loadArticles() {
             if(!db) return;
+            // 監聽文章變化
             const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'articles'));
             onSnapshot(q, (snapshot) => {
                 currentArticles = snapshot.docs.map(d => ({id: d.id, ...d.data()}));
                 renderArticleList();
             }, (error) => {
                 console.error("Error loading articles:", error);
+                // 權限不足時不報錯，僅安靜失敗 (一般學生不需讀取列表，除非是老師)
             });
         }
 
@@ -866,7 +872,7 @@
             const artView = document.getElementById('view-articles');
             const tabSub = document.getElementById('tab-submissions');
             const tabArt = document.getElementById('tab-articles');
-            
+
             if(tab === 'submissions') {
                 subView.classList.remove('hidden');
                 subView.classList.add('flex');
@@ -918,7 +924,7 @@
                     <td class="p-3 text-gray-500">${date}</td>
                     <td class="p-3 font-bold text-gray-800">${sub.studentInfo.name}</td>
                     <td class="p-3 text-gray-800">${sub.studentInfo.seatNumber}</td>
-                    <td class="p-3 text-gray-800">${sub.stats.originalLength} / <span class="font-bold text-indigo-600">${sub.stats.summaryLength}</span></td>
+                    <td class="p-3 text-gray-800">${sub.stats.originalLength} / <span class="font-bold text-indigo-600">${sub.stats.summaryLength || sub.finalSummary.length}</span></td>
                     <td class="p-3 text-blue-700 font-bold bg-blue-50/30 border-l border-blue-50">${sub.stats.ratio}%</td>
                     <td class="p-3 text-red-700 font-bold bg-red-50/30 border-l border-red-50">${sub.stats.deletionFragments}</td>
                     <td class="p-3 text-2xl">${sub.checks.confidence === 'good' ? '😄' : sub.checks.confidence === 'ok' ? '🙂' : '🤔'}</td>
@@ -973,7 +979,7 @@
                 sub.studentInfo.name, 
                 sub.studentInfo.seatNumber, 
                 sub.stats.originalLength, 
-                sub.stats.summaryLength, 
+                sub.stats.summaryLength || sub.finalSummary.length, 
                 sub.stats.ratio + '%',
                 sub.stats.deletionFragments,
                 sub.checks.confidence,
@@ -996,7 +1002,6 @@
         selectArticle(DEFAULT_ARTICLE);
         initChecklist();
         lucide.createIcons();
-
     </script>
 </body>
 </html>
