@@ -326,12 +326,7 @@
                                     <th class="p-3 text-gray-600">自我信心</th>
                                     <th class="p-3 text-gray-600">操作</th>
 
-#### 步驟 2：修改表格內容 (增加刪除按鈕)
-請搜尋 `window.renderSubmissions` 函式 (約第 208 行) [cite: 208]，找到 `tr.innerHTML` 的部分，並在最後面加上刪除按鈕的語法：
 
-```javascript
-// 修改 renderSubmissions 裡面的 tr.innerHTML
-tr.innerHTML = `
     <td class="p-3 text-gray-500">${date}</td>
     <td class="p-3 font-bold text-gray-800">${sub.studentInfo.name}</td>
     <td class="p-3 text-gray-800">${sub.studentInfo.seatNumber}</td>
