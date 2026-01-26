@@ -324,10 +324,8 @@
                                     <th class="p-3 text-gray-600 bg-blue-50 text-blue-700 font-bold border-l border-blue-100">保留比例</th>
                                     <th class="p-3 text-gray-600 bg-red-50 text-red-700 font-bold border-l border-red-100">刪除片段</th>
                                     <th class="p-3 text-gray-600">自我信心</th>
-                                    <th class="p-3 text-gray-600">操作</th>
                                 </tr>
                             </thead>
-
                             <tbody id="submissions-body" class="divide-y divide-gray-200"></tbody>
                         </table>
                     </div>
@@ -926,60 +924,22 @@
             });
         }
 
-// --- 新增：刪除學生作業功能 (請放在外面) ---
-        window.deleteSubmission = async function(id) {
-            // 再次確認，避免誤刪
-            if(!confirm("⚠️ 確定要永久刪除這份學生的作業嗎？刪除後無法復原喔！")) {
-                return;
-            }
-
-            try {
-                // 執行資料庫刪除
-                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'student_summaries', id));
-                // 成功後不用做任何事，因為 onSnapshot 會自動更新畫面
-                alert("🗑️ 作業已刪除");
-            } catch(e) {
-                console.error("刪除失敗:", e);
-                alert("刪除失敗，請檢查 Console 錯誤訊息");
-            }
-        }
-
-// --- 請將 window.renderSubmissions 替換成這一段 ---
-        
-        // 1. 先定義刪除功能 (放在 render 外面比較安全)
-        window.deleteSubmission = async function(id) {
-            if(!confirm("⚠️ 確定要永久刪除這份學生的作業嗎？刪除後無法復原喔！")) {
-                return;
-            }
-            try {
-                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'student_summaries', id));
-                alert("🗑️ 作業已刪除");
-            } catch(e) {
-                console.error("刪除失敗:", e);
-                alert("刪除失敗，請檢查 Console 錯誤訊息");
-            }
-        }
-
-        // 2. 渲染表格的主程式
         window.renderSubmissions = function() {
             const tbody = document.getElementById('submissions-body');
             const sort = document.getElementById('sort-select').value;
             tbody.innerHTML = '';
             
-            // 排序資料
             const sorted = [...currentSubmissions].sort((a, b) => {
                 if(sort === 'seat') return (parseInt(a.studentInfo.seatNumber)||999) - (parseInt(b.studentInfo.seatNumber)||999);
                 return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
             });
+
             document.getElementById('submission-count').innerText = sorted.length;
 
-            // 產生每一列資料
             sorted.forEach(sub => {
                 const date = sub.createdAt ? new Date(sub.createdAt.seconds * 1000).toLocaleDateString() : '-';
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-white transition-colors";
-                
-                // 這裡的 ` ` (反引號) 非常重要，不能少！
                 tr.innerHTML = `
                     <td class="p-3 text-gray-500">${date}</td>
                     <td class="p-3 font-bold text-gray-800">${sub.studentInfo.name}</td>
@@ -988,17 +948,12 @@
                     <td class="p-3 text-blue-700 font-bold bg-blue-50/30 border-l border-blue-50">${sub.stats.ratio}%</td>
                     <td class="p-3 text-red-700 font-bold bg-red-50/30 border-l border-red-50">${sub.stats.deletionFragments}</td>
                     <td class="p-3 text-2xl">${sub.checks.confidence === 'good' ? '😄' : sub.checks.confidence === 'ok' ? '🙂' : '🤔'}</td>
-                    <td class="p-3">
-                        <button onclick="deleteSubmission('${sub.id}')" class="text-red-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-full transition-colors" title="刪除作業">
-                            <i data-lucide="trash-2" class="w-5 h-5"></i>
-                        </button>
-                    </td>
                 `;
                 tbody.appendChild(tr);
             });
-            // 重新載入圖示
-            lucide.createIcons();
-        }        window.addArticle = async function() {
+        }
+
+        window.addArticle = async function() {
             const title = document.getElementById('new-article-title').value;
             const content = document.getElementById('new-article-content').value;
             if(!title || !content) return alert("請輸入完整");
