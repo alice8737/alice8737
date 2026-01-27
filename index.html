@@ -105,7 +105,7 @@
                         <p class="text-gray-500 font-bold mb-4 text-sm uppercase tracking-wide">完成後問自己：</p>
                         <ul class="space-y-4 text-gray-700 font-medium">
                             <li class="flex gap-3"><i data-lucide="check-circle" class="text-green-500 w-5 h-5 shrink-0"></i> 我寫的摘要有把重點說清楚嗎？</li>
-                            <li class="flex gap-3"><i data-lucide="check-circle" class="text-green-500 w-5 h-5 shrink-0"></i> 還有哪裡看不懂嗎？</li>
+                            <li class="flex gap-3"><i data-lucide="check-circle" class="text-green-500 w-5 h-5 shrink-0"></i> 還有哪裡看不懂或不太確定嗎？</li>
                             <li class="flex gap-3"><i data-lucide="check-circle" class="text-green-500 w-5 h-5 shrink-0"></i> 刪掉的都是不重要的嗎？</li>
                             <li class="flex gap-3"><i data-lucide="check-circle" class="text-green-500 w-5 h-5 shrink-0"></i> 句子讀起來通順嗎？</li>
                         </ul>
@@ -390,7 +390,7 @@
         
        // --- 修正後的 AI 設定 ---
 　　　　// 將這裡換成剛剛新建立的那組金鑰 (不要用 Firebase Config 裡的那組)
-　　　　const apiKey = "AIzaSyCoaVaRLYDO_87kRQpciyUt20eqGADZVaI";
+　　　　const apiKey = "";
 
         // 2. Firebase 設定 (您的專案資訊)
         const firebaseConfig = {
@@ -415,6 +415,8 @@
         let studentInfo = { name: '', seatNumber: '' };
         let checks = { check1: null, check2: null, check3: null, check4: null, confidence: null };
         let hintIndices = { q1: 0, q2: 0, q3: 0 };
+// --- 新增這一行 ---
+        let hintClickCount = 0;
 
         // --- 初始化 Firebase (已修正) ---
         function initFirebase() {
@@ -489,14 +491,33 @@
             }
         });
 
-        function updateStats() {
+function updateStats() {
             const container = document.getElementById('deletion-area');
-            const deletedNodes = container.querySelectorAll('.deletion-text');
             
+            // --- 新增功能：同步到摘要區 ---
+            // 1. 複製一份目前的內容，這樣操作才不會影響到原本的畫面
+            const clone = container.cloneNode(true);
+            
+            // 2. 找出所有被標記為「刪除」的紅字，計算長度並移除它們
+            const deletedNodes = clone.querySelectorAll('.deletion-text');
             let deletedLen = 0;
-            deletedNodes.forEach(node => deletedLen += node.innerText.length);
+            deletedNodes.forEach(node => {
+                deletedLen += node.innerText.length;
+                node.remove(); // 從複製的內容中移除
+            });
             
-            const origLen = originalText.length;
+            // 3. 剩下的就是「保留下來」的文字，同步到右邊摘要區
+            const remainingText = clone.innerText;
+            document.getElementById('summary-area').innerText = remainingText;
+
+            // --- 更新統計數據 ---
+            // 取得目前左邊區域的總字數 (包含紅字)，確保如果學生有手動改字，數據也是對的
+            const currentTotalText = container.innerText;
+            
+            // 如果需要，也可以在這裡順便更新全域變數，確保提交時是最新版本
+            // originalText = currentTotalText; 
+            
+            const origLen = currentTotalText.length;
             const kept = Math.max(0, origLen - deletedLen);
             const ratio = origLen > 0 ? Math.round((kept / origLen) * 100) : 0;
 
@@ -514,7 +535,7 @@
             document.getElementById('stat-ratio').innerText = stats.ratio + '%';
             document.getElementById('stat-fragments').innerText = stats.deletionFragments;
         }
-
+        
         window.insertText = function(text) {
             const div = document.getElementById('summary-area');
             div.focus();
@@ -598,16 +619,40 @@
             
             btn.innerHTML = `<span class="animate-spin">🔄</span> AI 正在思考...`;
             
-            const prompt = `你是國小三年級學生的閱讀小幫手。這篇文章內容是：「${originalText}」。請找出最重要的3個關鍵重點，用條列式，簡單語氣，總字數60字以內。`;
+            let prompt = "";
+
+            // --- 判斷是第幾次點擊 ---
+            if (hintClickCount === 0) {
+                // 第一次：給 3 個重點 (全貌)
+                prompt = `你是國小三年級學生的閱讀小幫手。這篇文章內容是：「${originalText}」。請找出最重要的3個關鍵重點，用條列式，簡單語氣，總字數60字以內。`;
+            } else {
+                // 第二次以上：逐段提問 (細節引導)
+                prompt = `你是引導思考的閱讀老師。這篇文章內容是：「${originalText}」。
+                請將文章「逐段」拆解，針對每一段提出一個「引導式提問」(用問句啟發學生思考，不要直接給答案)。
+                
+                請依照以下格式輸出：
+                第一段思考：[針對第一段的提問]
+                第二段思考：[針對第二段的提問]
+                ...以此類推，包含所有段落。`;
+            }
+
             const result = await callAI(prompt);
             
-            btn.innerHTML = `<i data-lucide="lightbulb"></i> 🔑 找不到重點？問問 AI 小偵探`;
+            // 增加計數，這樣下次點擊就會進入「逐段提問」模式
+            hintClickCount++;
+
+            // 更新 UI
+            if (hintClickCount === 1) {
+                // 第一次點完後，改變按鈕文字提示學生可以再點一次
+                btn.innerHTML = `<i data-lucide="zoom-in"></i> 🔍 想看更細的逐段提示？再點我一次`;
+            } else {
+                btn.innerHTML = `<i data-lucide="lightbulb"></i> 🔑 找不到重點？問問 AI 小偵探`;
+            }
             
             btn.style.display = 'none';
             contentDiv.classList.remove('hidden');
             typewriter(textDiv, result || "⚠️ AI 無法回應");
         }
-
         window.closeAIHint = function() {
             document.getElementById('ai-hint-content').classList.add('hidden');
             document.getElementById('btn-ask-hint').style.display = 'flex';
@@ -623,7 +668,45 @@
 
             btn.innerHTML = `<span class="animate-spin">🔄</span> AI 正在改作業...`;
 
-            const prompt = `你是溫柔的國小老師。學生摘要：「${summary}」。原文：「${originalText}」。請給予評分(滿分100)與3點具體建議(重點、簡潔、流暢)，語氣鼓勵。`;
+            const prompt = `你是溫柔且專業的國小閱讀寫作老師。請批改學生的摘要作業。
+
+原文：「${originalText}」
+學生摘要：「${summary}」
+
+**【評分規則】：基準分 85 分。**
+請根據學生的表現，從 85 分開始進行「加分」或「扣分」，範圍控制在 **80分 ~ 100分** 之間。
+
+**評分邏輯：**
+1. **加分區 (85 → 100)**：若表現優良，每個向度可加 1~5 分。若寫得非常完美，請不吝給予 100 分。
+2. **扣分區 (85 → 80)**：若發生「刪減太多導致看不懂」、「亂改原文」或「重點完全遺漏」，請從 85 分酌量扣分，最低給 80 分。
+
+請針對以下三個向度評估：
+
+1. 【重點涵蓋率】(最高加 5 分)：
+   - (5分) 表現優良：涵蓋所有重要概念或主要事件，能完整呈現段落/全文大意。
+   - (3-4分) 表現良好：涵蓋大部分重點，僅少數重要資訊遺漏。
+   - (1-2分) 須再加強：僅涵蓋部分重點，遺漏多數重要資訊。
+   - (0分) 表現不足：幾乎無法抓住文章重點，內文不完整或偏離主題。
+
+2. 【簡潔與刪減能力】(最高加 5 分)：
+   - (5分) 表現優良：能刪除冗餘訊息，內容精煉，無不必要細節。
+   - (3-4分) 表現良好：大部分刪除不必要細節，仍留有些許冗餘資訊。
+   - (1-2分) 須再加強：只刪除少部分不重要訊息，仍有大量冗餘或不必要內容。
+   - (0分) 表現不足：幾乎未刪除冗餘內容，或僅抄寫原文句子。
+
+3. 【語句流暢度】(最高加 5 分)：
+   - (5分) 表現優良：語句組合順暢，表達清晰，具備邏輯性。
+   - (3-4分) 表現良好：語句組合大致順暢，部分語句雖不構精煉但能理解。
+   - (1-2分) 須再加強：語句間缺乏連貫性，前後銜接不順，影響閱讀。
+   - (0分) 表現不足：語句結構混亂，或僅為原文抄錄，缺乏組織。
+
+請依照以下格式輸出：
+總分：[計算後的總分]/100
+評語：
+1. [針對重點涵蓋率的具體評語]
+2. [針對簡潔與刪減能力的具體評語]
+3. [針對語句流暢度的具體評語]
+(最後給一句溫柔鼓勵的話，若分數較低請給予明確指引，若滿分請給予大力稱讚)`;
             const result = await callAI(prompt);
 
             btn.innerHTML = `<i data-lucide="message-circle"></i> 👩‍🏫 寫好了？請 AI 老師看一下`;
@@ -657,15 +740,48 @@
             hintIndices[id] = (idx + 1) % list.length;
         }
 
-        // --- 自我檢核與資訊 ---
+// --- 自我檢核與資訊 ---
         function initChecklist() {
             const container = document.getElementById('checklist-container');
+            
+            // 修改點：在這裡定義每個問題的「正面回答 (yesBtn)」與「負面回答 (noBtn)」
             const questions = [
-                {id: 'check1', text: '我寫的摘要有把重點說清楚嗎？', icon: 'book-open', color: 'orange'},
-                {id: 'check2', text: '還有哪裡看不懂嗎？', icon: 'help-circle', color: 'purple'},
-                {id: 'check3', text: '刪掉的都是不重要的嗎？', icon: 'trash-2', color: 'red'},
-                {id: 'check4', text: '句子讀起來通順嗎？', icon: 'pen-tool', color: 'cyan'}
+                {
+                    id: 'check1', 
+                    text: '我寫的摘要有把重點說清楚嗎？', 
+                    icon: 'book-open', 
+                    color: 'orange',
+                    yesBtn: '有', 
+                    noBtn: '還不太確定'
+                },
+                {
+                    id: 'check2', 
+                    text: '還有哪裡看不懂或不太確定嗎？', 
+                    icon: 'help-circle', 
+                    color: 'purple',
+                    yesBtn: '沒有', // 「沒有」看不懂 = 正面狀態
+                    noBtn: '有'
+                },
+                {
+                    id: 'check3', 
+                    text: '刪掉的都是不重要的嗎？', 
+                    icon: 'trash-2', 
+                    color: 'red',
+                    yesBtn: '是', 
+                    noBtn: '還不太確定'
+                },
+                {
+                    id: 'check4', 
+                    text: '句子讀起來通順嗎？', 
+                    icon: 'pen-tool', 
+                    color: 'cyan',
+                    yesBtn: '通順', 
+                    noBtn: '不太通順'
+                }
             ];
+
+            // 先清空容器 (避免重複渲染)
+            container.innerHTML = '';
 
             questions.forEach(q => {
                 const div = document.createElement('div');
@@ -676,15 +792,18 @@
                         <p class="font-bold text-gray-800">${q.text}</p>
                     </div>
                     <div class="flex gap-2">
-                        <button onclick="updateCheck('${q.id}', true, this)" class="flex-1 py-2 rounded-lg border text-sm font-bold hover:bg-gray-50">是</button>
-                        <button onclick="updateCheck('${q.id}', false, this)" class="flex-1 py-2 rounded-lg border text-sm font-bold hover:bg-gray-50">否</button>
+                        <button onclick="updateCheck('${q.id}', true, this)" class="flex-1 py-2 rounded-lg border text-sm font-bold hover:bg-gray-50">${q.yesBtn}</button>
+                        <button onclick="updateCheck('${q.id}', false, this)" class="flex-1 py-2 rounded-lg border text-sm font-bold hover:bg-gray-50">${q.noBtn}</button>
                     </div>
                 `;
                 container.appendChild(div);
             });
 
-            // 信心按鈕
+            // 信心按鈕 (保持不變)
             const confContainer = document.getElementById('confidence-container');
+            // 清空信心區塊避免重複 (安全起見)
+            confContainer.innerHTML = '';
+            
             const confs = [
                 {val: 'good', text: '我覺得很好！', emoji: '😄'},
                 {val: 'ok', text: '我覺得還可以', emoji: '🙂'},
@@ -705,7 +824,6 @@
                 confContainer.appendChild(btn);
             });
         }
-
         window.updateCheck = function(id, val, btn) {
             checks[id] = val;
             const parent = btn.parentNode;
@@ -869,6 +987,8 @@
             document.getElementById('summary-area').innerText = text;
             updateStats();
             toggleArticleModal();
+// --- 新增這一行：換文章時，提示也要重頭開始 ---
+            hintClickCount = 0; 
         }
 
         // --- 教師後台 ---
@@ -924,97 +1044,93 @@
             });
         }
 
-        window.renderSubmissions = function() {
-            const tbody = document.getElementById('submissions-body');
-            const sort = document.getElementById('sort-select').value;
-            tbody.innerHTML = '';
-            
-            const sorted = [...currentSubmissions].sort((a, b) => {
-                if(sort === 'seat') return (parseInt(a.studentInfo.seatNumber)||999) - (parseInt(b.studentInfo.seatNumber)||999);
-                return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
-            });
+  // --- 1. 刪除作業函式 ---
+window.deleteSubmission = async function(id) {
+    if(!confirm("⚠️ 確定要永久刪除這份學生的作業嗎？刪除後無法復原喔！")) return;
+    try {
+        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'student_summaries', id));
+        alert("🗑️ 作業已刪除");
+    } catch(e) {
+        console.error("刪除失敗:", e);
+        alert("刪除失敗");
+    }
+}
 
-            document.getElementById('submission-count').innerText = sorted.length;
-
-            sorted.forEach(sub => {
-                const date = sub.createdAt ? new Date(sub.createdAt.seconds * 1000).toLocaleDateString() : '-';
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-white transition-colors";
-                tr.innerHTML = `
-                    <td class="p-3 text-gray-500">${date}</td>
-                    <td class="p-3 font-bold text-gray-800">${sub.studentInfo.name}</td>
-                    <td class="p-3 text-gray-800">${sub.studentInfo.seatNumber}</td>
-                    <td class="p-3 text-gray-800">${sub.stats.originalLength} / <span class="font-bold text-indigo-600">${sub.stats.summaryLength || sub.finalSummary.length}</span></td>
-                    <td class="p-3 text-blue-700 font-bold bg-blue-50/30 border-l border-blue-50">${sub.stats.ratio}%</td>
-                    <td class="p-3 text-red-700 font-bold bg-red-50/30 border-l border-red-50">${sub.stats.deletionFragments}</td>
-                    <td class="p-3 text-2xl">${sub.checks.confidence === 'good' ? '😄' : sub.checks.confidence === 'ok' ? '🙂' : '🤔'}</td>
-                `;
-                tbody.appendChild(tr);
-            });
+// --- 2. 渲染表格函式 (修正排序與顯示問題) ---
+window.renderSubmissions = function() {
+    const tbody = document.getElementById('submissions-body');
+    const sort = document.getElementById('sort-select').value;
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    
+    // 確保排序邏輯強健：處理座號為空的情況
+    const sorted = [...currentSubmissions].sort((a, b) => {
+        if(sort === 'seat') {
+            const seatA = parseInt(a.studentInfo?.seatNumber) || 999;
+            const seatB = parseInt(b.studentInfo?.seatNumber) || 999;
+            return seatA - seatB;
         }
+        // 預設按時間新到舊
+        return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+    });
 
-        window.addArticle = async function() {
-            const title = document.getElementById('new-article-title').value;
-            const content = document.getElementById('new-article-content').value;
-            if(!title || !content) return alert("請輸入完整");
-            
-            try {
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'articles'), {
-                    title, content, createdAt: serverTimestamp()
-                });
-                alert("新增成功");
-                document.getElementById('new-article-title').value = '';
-                document.getElementById('new-article-content').value = '';
-            } catch(e) { console.error(e); }
-        }
+    document.getElementById('submission-count').innerText = sorted.length;
 
-        window.deleteArticle = async function(id) {
-            if(confirm("確定刪除？")) {
-                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'articles', id));
-            }
-        }
+    sorted.forEach(sub => {
+        const date = sub.createdAt ? new Date(sub.createdAt.seconds * 1000).toLocaleDateString() : '-';
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-white transition-colors border-b";
+        
+        // 確保使用反引號 (Template Literals)
+        tr.innerHTML = `
+            <td class="p-3 text-gray-500">${date}</td>
+            <td class="p-3 font-bold text-gray-800">${sub.studentInfo?.name || '未填'}</td>
+            <td class="p-3 text-gray-800">${sub.studentInfo?.seatNumber || '-'}</td>
+            <td class="p-3 text-gray-800">${sub.stats?.originalLength || 0} / <span class="font-bold text-indigo-600">${sub.stats?.summaryLength || sub.finalSummary?.length || 0}</span></td>
+            <td class="p-3 text-blue-700 font-bold bg-blue-50/30 border-l border-blue-50">${sub.stats?.ratio || 0}%</td>
+            <td class="p-3 text-red-700 font-bold bg-red-50/30 border-l border-red-50">${sub.stats?.deletionFragments || 0}</td>
+            <td class="p-3 text-2xl">${sub.checks?.confidence === 'good' ? '😄' : sub.checks?.confidence === 'ok' ? '🙂' : '🤔'}</td>
+            <td class="p-3">
+                <button onclick="deleteSubmission('${sub.id}')" class="text-red-400 hover:text-red-600 p-2 rounded-full">
+                    <i data-lucide="trash-2" class="w-5 h-5"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+    // 重新載入圖示
+    if (window.lucide) lucide.createIcons();
+}
 
-        function renderArticlesManage() {
-            const list = document.getElementById('articles-manage-list');
-            list.innerHTML = '';
-            currentArticles.forEach(art => {
-                const div = document.createElement('div');
-                div.className = "p-4 flex justify-between items-center hover:bg-gray-50";
-                div.innerHTML = `
-                    <div class="flex-grow pr-4">
-                        <div class="font-bold text-lg text-gray-800">${art.title}</div>
-                        <div class="text-gray-500 text-sm line-clamp-1">${art.content}</div>
-                    </div>
-                    <button onclick="deleteArticle('${art.id}')" class="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg"><i data-lucide="trash-2"></i></button>
-                `;
-                list.appendChild(div);
-            });
-            lucide.createIcons();
-        }
-
-        window.exportToCSV = function() {
-            if(!currentSubmissions.length) return;
-            const headers = ['學生姓名', '座號', '原文字數', '摘要字數', '保留比例', '刪除片段', '自我評估', '提交時間', '摘要內容'];
-            const rows = currentSubmissions.map(sub => [
-                sub.studentInfo.name, 
-                sub.studentInfo.seatNumber, 
-                sub.stats.originalLength, 
-                sub.stats.summaryLength || sub.finalSummary.length, 
-                sub.stats.ratio + '%',
-                sub.stats.deletionFragments,
-                sub.checks.confidence,
-                sub.createdAt ? new Date(sub.createdAt.seconds * 1000).toLocaleString('zh-TW') : '', 
-                `"${sub.finalSummary.replace(/"/g, '""')}"`
-            ]);
-            const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "學生摘要練習統計.csv");
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
+// --- 3. 匯出 CSV 函式 ---
+window.exportToCSV = function() {
+    if(!currentSubmissions || currentSubmissions.length === 0) {
+        alert("目前沒有資料可以匯出");
+        return;
+    }
+    const headers = ['學生姓名', '座號', '原文字數', '摘要字數', '保留比例', '刪除片段', '自我評估', '提交時間', '摘要內容'];
+    const rows = currentSubmissions.map(sub => [
+        sub.studentInfo?.name || '', 
+        sub.studentInfo?.seatNumber || '', 
+        sub.stats?.originalLength || 0, 
+        sub.stats?.summaryLength || sub.finalSummary?.length || 0, 
+        (sub.stats?.ratio || 0) + '%',
+        sub.stats?.deletionFragments || 0,
+        sub.checks?.confidence || '',
+        sub.createdAt ? new Date(sub.createdAt.seconds * 1000).toLocaleString('zh-TW') : '', 
+        `"${(sub.finalSummary || "").replace(/"/g, '""')}"`
+    ]);
+    
+    const csvContent = "\uFEFF" + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `學生摘要作業統計_${new Date().toLocaleDateString()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
 
         // --- 啟動 ---
         initFirebase();
