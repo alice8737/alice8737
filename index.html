@@ -23,6 +23,17 @@
         [contenteditable]:focus {
             outline: none;
         }
+        /* 螢光筆樣式 */
+        .highlight-text {
+            background-color: #fef08a; /* 亮黃色 */
+            padding: 2px 0;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .highlight-text:hover {
+            background-color: #fde047; /* 滑鼠移過去變深 */
+        }
     </style>
 </head>
 <body class="bg-slate-50 font-sans pb-32">
@@ -163,19 +174,23 @@
             </div>
 
             <!-- 主要操作區 (Grid) -->
-            <div id="workspace-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-0 divide-x-2 divide-gray-100">
-                <!-- 左側：刪除練習 -->
+<div id="workspace-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-0 divide-x-2 divide-gray-100">
                 <div class="flex flex-col bg-yellow-50/20">
-                    <div class="p-3 bg-yellow-50 border-b-2 border-yellow-100 flex justify-between items-center h-14">
-                        <h4 class="font-bold text-gray-700 flex items-center gap-2">📖 刪除過程 <span class="text-xs font-normal text-red-600 bg-white px-2 py-0.5 rounded-full border border-red-100">紅字+粗體=刪除</span></h4>
-                        <div class="flex gap-2">
-                            <button onclick="handleDeleteSelection()" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg text-xs flex items-center gap-1 font-bold shadow-sm transition-all"><i data-lucide="scissors" class="w-3 h-3"></i> 刪除/復原</button>
-                            <button onclick="toggleArticleModal()" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-lg text-xs flex items-center gap-1 font-bold shadow-sm transition-all"><i data-lucide="library" class="w-3 h-3"></i> 選文章</button>
+                    <div class="p-3 bg-yellow-50 border-b-2 border-yellow-100">
+                        <div class="flex flex-wrap items-center justify-between gap-y-2">
+                            <h4 class="font-bold text-gray-700 flex items-center gap-2 shrink-0">
+                                📖 刪除過程 <span class="text-xs font-normal text-red-600 bg-white px-2 py-0.5 rounded-full border border-red-100 hidden sm:inline-block">紅字+粗體=刪除</span>
+                            </h4>
+                            <div class="flex flex-wrap gap-2 items-center">
+                                <button onclick="handleDeleteSelection()" class="shrink-0 bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg text-xs flex items-center gap-1 font-bold shadow-sm transition-all"><i data-lucide="scissors" class="w-3 h-3"></i> 刪除/復原</button>
+                                <button onclick="handleHighlightSelection()" class="shrink-0 bg-yellow-400 hover:bg-yellow-500 text-white px-3 py-1 rounded-lg text-xs flex items-center gap-1 font-bold shadow-sm transition-all text-shadow"><i data-lucide="highlighter" class="w-3 h-3"></i> 畫重點</button>
+                                <button onclick="toggleArticleModal()" class="shrink-0 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-lg text-xs flex items-center gap-1 font-bold shadow-sm transition-all"><i data-lucide="library" class="w-3 h-3"></i> 選文章</button>
+                            </div>
                         </div>
                     </div>
+                    
                     <div id="deletion-area" class="p-6 flex-grow text-lg leading-loose text-gray-800 whitespace-pre-wrap outline-none min-h-[450px]" style="line-height: 2.5rem;" contenteditable="true"></div>
                     
-                    <!-- AI Hint (截圖時隱藏) -->
                     <div id="ai-hint-section" class="p-3 bg-yellow-50 border-t-2 border-yellow-100 min-h-[80px] flex flex-col justify-center items-center">
                         <button id="btn-ask-hint" onclick="askAIHint()" class="w-full bg-white border-2 border-yellow-200 text-yellow-700 py-2 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-50 transition-colors font-bold shadow-sm active:scale-95">
                             <i data-lucide="lightbulb"></i> 🔑 找不到重點？問問 AI 小偵探
@@ -192,15 +207,13 @@
                     </div>
                 </div>
 
-                <!-- 右側：摘要撰寫 -->
                 <div class="flex flex-col bg-green-50/20">
-                    <div class="p-3 bg-green-50 border-b-2 border-green-100 flex justify-between items-center h-14">
-                        <h4 class="font-bold text-green-800 flex items-center gap-2">✨ 完成的摘要 <span class="text-xs font-normal text-green-600 bg-white px-2 py-0.5 rounded-full border border-green-100">可直接編輯</span></h4>
+                    <div class="p-3 bg-green-50 border-b-2 border-green-100 flex justify-between items-center h-[60px] md:h-auto">
+                        <h4 class="font-bold text-green-800 flex items-center gap-2">✨ 完成的摘要 <span class="text-xs font-normal text-green-600 bg-white px-2 py-0.5 rounded-full border border-green-100 hidden sm:inline-block">可直接編輯</span></h4>
                         <div class="text-xs text-indigo-400 flex items-center gap-1"><i data-lucide="rocket" class="w-3 h-3"></i> 上方可快速輸入</div>
                     </div>
                     <div id="summary-area" class="p-6 flex-grow text-lg leading-loose text-gray-800 whitespace-pre-wrap outline-none min-h-[450px]" style="line-height: 2.5rem;" contenteditable="true"></div>
 
-                    <!-- AI Feedback (截圖時隱藏) -->
                     <div id="ai-feedback-section" class="p-3 bg-green-50 border-t-2 border-green-100 min-h-[80px] flex flex-col justify-center items-center">
                         <button id="btn-ask-feedback" onclick="askAIFeedback()" class="w-full bg-white border-2 border-green-200 text-green-700 py-2 rounded-xl flex items-center justify-center gap-2 hover:bg-green-50 transition-colors font-bold shadow-sm active:scale-95">
                             <i data-lucide="message-circle"></i> 👩‍🏫 寫好了？請 AI 老師看一下
@@ -452,44 +465,96 @@
         // --- 核心邏輯 ---
 
         // 刪除/復原功能
+// ==========================================
+        //       🎨 螢光筆與刪除功能整合包
+        // ==========================================
+
+        // 1. 處理刪除/復原 (原本的功能)
         window.handleDeleteSelection = function() {
+            const sel = window.getSelection();
+            if(!sel.rangeCount) return;
+            const range = sel.getRangeAt(0);
+            const container = document.getElementById('deletion-area');
+            
+            // 檢查是否在編輯區內
+            if(!container.contains(range.commonAncestorContainer)) return;
+            if(range.toString().length === 0) return;
+
+            // 建立刪除線標籤 (紅字)
+            const span = document.createElement('span');
+            span.className = "deletion-text"; 
+            span.title = "點擊以復原";
+            
+            try {
+                range.surroundContents(span);
+                sel.removeAllRanges(); // 取消選取
+                updateStats(); // 更新字數統計
+            } catch(e) {
+                alert("⚠️ 無法標記：請選取完整的文字，不要跨越多個段落喔！");
+            }
+        }
+
+        // 2. 處理黃色螢光筆 (新功能)
+        window.handleHighlightSelection = function() {
             const sel = window.getSelection();
             if(!sel.rangeCount) return;
 
             let node = sel.anchorNode;
+            // 如果點擊在文字上，抓取其父元素檢查是否已經是螢光筆
             if(node.nodeType === 3) node = node.parentNode;
-            if(node.classList.contains('deletion-text')) {
+            
+            // 如果已經是螢光筆，就取消 (變回普通文字)
+            if(node.classList.contains('highlight-text')) {
                 const text = node.innerText;
-                node.replaceWith(text);
-                updateStats();
+                const textNode = document.createTextNode(text);
+                node.parentNode.replaceChild(textNode, node);
                 return;
             }
 
             const range = sel.getRangeAt(0);
             const container = document.getElementById('deletion-area');
+            
+            // 檢查是否在編輯區內
             if(!container.contains(range.commonAncestorContainer)) return;
             if(range.toString().length === 0) return;
 
+            // 建立螢光筆標籤 (黃底)
             const span = document.createElement('span');
-            span.className = "deletion-text"; 
-            span.title = "點擊以復原";
+            span.className = "highlight-text"; 
+            span.title = "點擊以取消重點";
+            
             try {
                 range.surroundContents(span);
-                sel.removeAllRanges();
-                updateStats();
+                sel.removeAllRanges(); // 取消選取
             } catch(e) {
-                alert("請選取完整的文字片段，不要跨越多個段落喔！");
+                alert("⚠️ 無法標記：請選取完整的文字，不要跨越多個段落喔！");
             }
         }
 
-        document.getElementById('deletion-area').addEventListener('click', (e) => {
-            if(e.target.classList.contains('deletion-text')) {
-                const text = e.target.innerText;
-                const textNode = document.createTextNode(text);
-                e.target.parentNode.replaceChild(textNode, e.target);
-                updateStats();
-            }
-        });
+        // 3. 統一管理點擊事件 (點擊紅字復原、點擊黃字取消)
+        // ⚠️ 請確保這段程式碼在整份文件中只出現一次
+        const delArea = document.getElementById('deletion-area');
+        // 先移除舊的監聽器 (雖然 HTML 無法直接移除匿名函式，但放在這裡是為了提醒覆蓋位置)
+        // 這裡使用新的監聽邏輯：
+        if (delArea) {
+            // 為了避免重複綁定，我們使用 onclick 屬性覆蓋，或者確認這是唯一的 addEventListener
+            delArea.onclick = (e) => {
+                // 情況 A: 點擊紅字 (取消刪除)
+                if(e.target.classList.contains('deletion-text')) {
+                    const text = e.target.innerText;
+                    const textNode = document.createTextNode(text);
+                    e.target.parentNode.replaceChild(textNode, e.target);
+                    updateStats(); // 更新右邊摘要與統計
+                }
+                // 情況 B: 點擊黃底 (取消重點)
+                else if(e.target.classList.contains('highlight-text')) {
+                    const text = e.target.innerText;
+                    const textNode = document.createTextNode(text);
+                    e.target.parentNode.replaceChild(textNode, e.target);
+                    // 螢光筆不影響字數統計，所以不用 updateStats
+                }
+            };
+        }
 
 function updateStats() {
             const container = document.getElementById('deletion-area');
