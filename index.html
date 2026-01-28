@@ -182,8 +182,8 @@
                                 📖 刪除過程 <span class="text-xs font-normal text-red-600 bg-white px-2 py-0.5 rounded-full border border-red-100 hidden sm:inline-block">紅字+粗體=刪除</span>
                             </h4>
                             <div class="flex flex-wrap gap-2 items-center">
-                                <button onclick="handleDeleteSelection()" class="shrink-0 bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg text-xs flex items-center gap-1 font-bold shadow-sm transition-all"><i data-lucide="scissors" class="w-3 h-3"></i> 刪除/復原</button>
                                 <button onclick="handleHighlightSelection()" class="shrink-0 bg-yellow-400 hover:bg-yellow-500 text-white px-3 py-1 rounded-lg text-xs flex items-center gap-1 font-bold shadow-sm transition-all text-shadow"><i data-lucide="highlighter" class="w-3 h-3"></i> 畫重點</button>
+                                <button onclick="handleDeleteSelection()" class="shrink-0 bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg text-xs flex items-center gap-1 font-bold shadow-sm transition-all"><i data-lucide="scissors" class="w-3 h-3"></i> 刪除/復原</button>
                                 <button onclick="toggleArticleModal()" class="shrink-0 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-lg text-xs flex items-center gap-1 font-bold shadow-sm transition-all"><i data-lucide="library" class="w-3 h-3"></i> 選文章</button>
                             </div>
                         </div>
@@ -1000,20 +1000,7 @@ function updateStats() {
             const modal = document.getElementById('article-modal');
             modal.classList.toggle('hidden');
         }
-
-        function loadArticles() {
-            if(!db) return;
-            // 監聽文章變化
-            const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'articles'));
-            onSnapshot(q, (snapshot) => {
-                currentArticles = snapshot.docs.map(d => ({id: d.id, ...d.data()}));
-                renderArticleList();
-            }, (error) => {
-                console.error("Error loading articles:", error);
-                // 權限不足時不報錯，僅安靜失敗 (一般學生不需讀取列表，除非是老師)
-            });
-        }
-
+        
         function renderArticleList() {
             const list = document.getElementById('article-list');
             list.innerHTML = '';
@@ -1196,6 +1183,109 @@ window.exportToCSV = function() {
     link.click();
     document.body.removeChild(link);
 }
+
+        // ==========================================
+        //       🛠️ 教師文章管理功能 (補修包)
+        // ==========================================
+
+        // 1. 載入文章 (修正版：同時更新學生選單與教師列表)
+        function loadArticles() {
+            if(!db) return;
+            const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'articles'));
+            onSnapshot(q, (snapshot) => {
+                currentArticles = snapshot.docs.map(d => ({id: d.id, ...d.data()}));
+                
+                // A. 更新學生看到的下拉選單
+                renderArticleList();
+                
+                // B. 更新教師看到的管理列表 (如果有開啟的話)
+                if(typeof renderArticlesManage === 'function') {
+                    const list = document.getElementById('articles-manage-list');
+                    if(list) renderArticlesManage();
+                }
+            }, (error) => {
+                console.error("Error loading articles:", error);
+            });
+        }
+
+        // 2. 渲染教師文章列表
+        window.renderArticlesManage = function() {
+            const list = document.getElementById('articles-manage-list');
+            if(!list) return;
+            
+            list.innerHTML = '';
+            // 排序：新到舊
+            const sorted = [...currentArticles].sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+
+            if(sorted.length === 0) {
+                list.innerHTML = '<div class="p-4 text-gray-400 text-center text-sm">📭 目前沒有文章，請從上方新增。</div>';
+                return;
+            }
+
+            sorted.forEach(art => {
+                const div = document.createElement('div');
+                div.className = "p-4 flex justify-between items-center hover:bg-gray-50 border-b transition-colors group";
+                div.innerHTML = `
+                    <div class="flex-grow pr-4">
+                        <div class="font-bold text-lg text-gray-800 flex items-center gap-2">
+                            ${art.title || '(無標題)'}
+                        </div>
+                        <div class="text-gray-500 text-sm line-clamp-1 mt-1">${art.content || ''}</div>
+                    </div>
+                    <button onclick="deleteArticle('${art.id}')" class="text-gray-300 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition-all" title="刪除此文章">
+                        <i data-lucide="trash-2" class="w-5 h-5"></i>
+                    </button>
+                `;
+                list.appendChild(div);
+            });
+            if(window.lucide) lucide.createIcons();
+        }
+
+        // 3. 新增文章功能 (這個就是按鈕沒反應的原因：函式可能不見了)
+        window.addArticle = async function() {
+            const title = document.getElementById('new-article-title').value;
+            const content = document.getElementById('new-article-content').value;
+            
+            if(!title || !content) {
+                alert("⚠️ 標題和內容都要填寫喔！");
+                return;
+            }
+            
+            const btn = document.querySelector('button[onclick="addArticle()"]');
+            const originalText = btn.innerText;
+            btn.innerText = "儲存中...";
+            btn.disabled = true;
+
+            try {
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'articles'), {
+                    title, content, createdAt: serverTimestamp()
+                });
+                alert("🎉 文章新增成功！");
+                // 清空輸入框
+                document.getElementById('new-article-title').value = '';
+                document.getElementById('new-article-content').value = '';
+            } catch(e) { 
+                console.error(e);
+                alert("❌ 新增失敗：\n" + e.message);
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        // 4. 刪除文章功能
+        window.deleteArticle = async function(id) {
+            if(!confirm("⚠️ 確定要永久刪除這篇文章嗎？\n(學生將無法再看到此文章)")) {
+                return;
+            }
+            try {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'articles', id));
+                alert("🗑️ 文章已刪除");
+            } catch(e) {
+                console.error("刪除失敗:", e);
+                alert("❌ 刪除失敗，請確認 Firebase 權限。");
+            }
+        }
 
         // --- 啟動 ---
         initFirebase();
