@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>超級摘要小幫手 (HTML版)</title>
+    <title>超級摘要小幫手</title>
     <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入 Lucide Icons -->
@@ -182,7 +182,7 @@
                                 📖 刪除過程 <span class="text-xs font-normal text-red-600 bg-white px-2 py-0.5 rounded-full border border-red-100 hidden sm:inline-block">紅字+粗體=刪除</span>
                             </h4>
                             <div class="flex flex-wrap gap-2 items-center">
-                                <button onclick="handleHighlightSelection()" class="shrink-0 bg-yellow-400 hover:bg-yellow-500 text-white px-3 py-1 rounded-lg text-xs flex items-center gap-1 font-bold shadow-sm transition-all text-shadow"><i data-lucide="highlighter" class="w-3 h-3"></i> 畫重點</button>
+                                <button onclick="handleHighlightSelection()" class="shrink-0 bg-yellow-400 hover:bg-yellow-500 text-white px-3 py-1 rounded-lg text-xs flex items-center gap-1 font-bold shadow-sm transition-all text-shadow"><i data-lucide="highlighter" class="w-3 h-3"></i> 分出句子</button>
                                 <button onclick="handleDeleteSelection()" class="shrink-0 bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg text-xs flex items-center gap-1 font-bold shadow-sm transition-all"><i data-lucide="scissors" class="w-3 h-3"></i> 刪除/復原</button>
                                 <button onclick="toggleArticleModal()" class="shrink-0 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-lg text-xs flex items-center gap-1 font-bold shadow-sm transition-all"><i data-lucide="library" class="w-3 h-3"></i> 選文章</button>
                             </div>
@@ -738,32 +738,32 @@ function updateStats() {
 原文：「${originalText}」
 學生摘要：「${summary}」
 
-**【評分規則】：基準分 85 分。**
-請根據學生的表現，從 85 分開始進行「加分」或「扣分」，範圍控制在 **80分 ~ 100分** 之間。
+**【評分規則】：基準分 88 分。**
+請根據學生的表現，從 88 分開始進行「加分」或「扣分」，範圍控制在 **83分 ~ 100分** 之間。
 
 **評分邏輯：**
-1. **加分區 (85 → 100)**：若表現優良，每個向度可加 1~5 分。若寫得非常完美，請不吝給予 100 分。
-2. **扣分區 (85 → 80)**：若發生「刪減太多導致看不懂」、「亂改原文」或「重點完全遺漏」，請從 85 分酌量扣分，最低給 80 分。
+1. **加分區 (88 → 100)**：若表現優良，每個向度可加 1~4 分。若寫得非常完美，請不吝給予 100 分。
+2. **扣分區 (88 → 83)**：若發生「刪減太多導致看不懂」、「亂改原文」或「重點完全遺漏」，請從 88 分酌量扣分，最低給 83 分。
 
 請針對以下三個向度評估：
 
-1. 【重點涵蓋率】(最高加 5 分)：
-   - (5分) 表現優良：涵蓋所有重要概念或主要事件，能完整呈現段落/全文大意。
-   - (3-4分) 表現良好：涵蓋大部分重點，僅少數重要資訊遺漏。
-   - (1-2分) 須再加強：僅涵蓋部分重點，遺漏多數重要資訊。
-   - (0分) 表現不足：幾乎無法抓住文章重點，內文不完整或偏離主題。
+1. 【重點涵蓋率】(最高加 4 分)：
+   - (4分) 表現優良：涵蓋所有重要概念或主要事件，能完整呈現段落/全文大意。
+   - (3分) 表現良好：涵蓋大部分重點，僅少數重要資訊遺漏。
+   - (2分) 須再加強：僅涵蓋部分重點，遺漏多數重要資訊。
+   - (1分) 表現不足：幾乎無法抓住文章重點，內文不完整或偏離主題。
 
-2. 【簡潔與刪減能力】(最高加 5 分)：
-   - (5分) 表現優良：能刪除冗餘訊息，內容精煉，無不必要細節。
-   - (3-4分) 表現良好：大部分刪除不必要細節，仍留有些許冗餘資訊。
-   - (1-2分) 須再加強：只刪除少部分不重要訊息，仍有大量冗餘或不必要內容。
-   - (0分) 表現不足：幾乎未刪除冗餘內容，或僅抄寫原文句子。
+2. 【簡潔與刪減能力】(最高加 4 分)：
+   - (4分) 表現優良：能刪除冗餘訊息，內容精煉，無不必要細節。
+   - (3分) 表現良好：大部分刪除不必要細節，仍留有些許冗餘資訊。
+   - (2分) 須再加強：只刪除少部分不重要訊息，仍有大量冗餘或不必要內容。
+   - (1分) 表現不足：幾乎未刪除冗餘內容，或僅抄寫原文句子。
 
-3. 【語句流暢度】(最高加 5 分)：
-   - (5分) 表現優良：語句組合順暢，表達清晰，具備邏輯性。
-   - (3-4分) 表現良好：語句組合大致順暢，部分語句雖不構精煉但能理解。
-   - (1-2分) 須再加強：語句間缺乏連貫性，前後銜接不順，影響閱讀。
-   - (0分) 表現不足：語句結構混亂，或僅為原文抄錄，缺乏組織。
+3. 【語句流暢度】(最高加 4 分)：
+   - (4分) 表現優良：語句組合順暢，表達清晰，具備邏輯性。
+   - (3分) 表現良好：語句組合大致順暢，部分語句雖不構精煉但能理解。
+   - (2分) 須再加強：語句間缺乏連貫性，前後銜接不順，影響閱讀。
+   - (1分) 表現不足：語句結構混亂，或僅為原文抄錄，缺乏組織。
 
 請依照以下格式輸出：
 總分：[計算後的總分]/100
@@ -771,6 +771,9 @@ function updateStats() {
 1. [針對重點涵蓋率的具體評語]
 2. [針對簡潔與刪減能力的具體評語]
 3. [針對語句流暢度的具體評語]
+
+代名詞只需使用"你"。
+三個向度評估的加分不需顯示，只要顯示最後的總分即可
 (最後給一句溫柔鼓勵的話，若分數較低請給予明確指引，若滿分請給予大力稱讚)`;
             const result = await callAI(prompt);
 
